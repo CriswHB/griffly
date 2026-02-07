@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GRIFFY - Sistema Integrado</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0d1117;
+            background-image: radial-gradient(at 0% 0%, #1e113a 0%, transparent 50%),
+                              radial-gradient(at 100% 100%, #151a23 0%, transparent 50%);
+            color: #d1d5db;
+            min-height: 100vh;
+        }
+        .nav-active { color: #a855f7; border-bottom: 2px solid #a855f7; }
+        .page-section { display: none; animation: fadeIn 0.3s ease; }
+        .active-section { display: block; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        
+        /* Estilos de Cards Reutilizáveis */
+        .db-card { background: rgba(30, 17, 58, 0.6); border: 1px solid #3c1e6e; border-radius: 16px; padding: 20px; }
+    </style>
+</head>
+<body>
+
+    <nav class="sticky top-0 z-50 bg-[#0d1117]/80 backdrop-blur-md border-b border-purple-900/50 p-4">
+        <div class="max-w-6xl mx-auto flex justify-between items-center">
+            <h1 class="text-2xl font-black text-white italic tracking-tighter">GRIFFY</h1>
+            <div class="flex gap-4 overflow-x-auto text-sm font-bold uppercase tracking-widest">
+                <button onclick="showPage('perfil')" class="nav-link nav-active p-2" id="btn-perfil">Perfil</button>
+                <button onclick="showPage('feed')" class="nav-link p-2" id="btn-feed">Feed</button>
+                <button onclick="showPage('musicas')" class="nav-link p-2" id="btn-musicas">Músicas</button>
+                <button onclick="showPage('mural')" class="nav-link p-2" id="btn-mural">Mural</button>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-6xl mx-auto p-6">
+
+        <section id="page-perfil" class="page-section active-section">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="db-card text-center">
+                    <img src="https://www.habbo.com.br/habbo-imaging/avatarimage?img_format=png&user=Crisw&direction=3&head_direction=3&size=m" class="mx-auto rounded-full border-4 border-purple-600 mb-4">
+                    <h2 class="text-2xl font-bold text-white">@Admin_Griffy</h2>
+                    <p id="display-bio" class="text-sm mt-2 italic text-gray-400">"Sempre inovando na Griffy."</p>
+                    <button onclick="editBio()" class="text-xs text-purple-500 mt-4 underline">Editar Bio</button>
+                </div>
+                <div class="md:col-span-2 db-card">
+                    <h3 class="font-bold mb-4 flex items-center gap-2"><span class="material-symbols-outlined">emoji_events</span> Conquistas</h3>
+                    <div id="perfil-conquistas" class="flex gap-4 overflow-x-auto"></div>
+                </div>
+            </div>
+        </section>
+
+        <section id="page-feed" class="page-section">
+            <div class="max-w-xl mx-auto space-y-6">
+                <div class="db-card">
+                    <textarea id="feed-input" class="w-full bg-black/30 border border-purple-900 rounded-lg p-3 text-white outline-none focus:border-purple-500" placeholder="O que há de novo?"></textarea>
+                    <button onclick="addPost()" class="w-full bg-purple-600 py-2 mt-2 rounded-lg font-bold">Publicar</button>
+                </div>
+                <div id="feed-container" class="space-y-4"></div>
+            </div>
+        </section>
+
+        <section id="page-musicas" class="page-section">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="db-card h-fit">
+                    <h3 class="font-bold mb-4">Sugerir Música</h3>
+                    <input type="text" id="m-title" placeholder="Título" class="w-full bg-black/20 p-2 rounded mb-2 border border-purple-900">
+                    <input type="text" id="m-artist" placeholder="Artista" class="w-full bg-black/20 p-2 rounded mb-2 border border-purple-900">
+                    <button onclick="addMusic()" class="w-full bg-purple-600 py-2 rounded font-bold">Adicionar à DB</button>
+                </div>
+                <div id="music-list" class="space-y-2"></div>
+            </div>
+        </section>
+
+        <section id="page-mural" class="page-section">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-xl font-bold">Mural de Fotos</h2>
+                <button onclick="addPhotoPrompt()" class="bg-purple-600 px-4 py-1 rounded-full text-sm font-bold">+ Nova Foto</button>
+            </div>
+            <div id="mural-container" class="grid grid-cols-2 md:grid-cols-4 gap-4"></div>
+        </section>
+
+    </main>
+
+    <script>
+        // --- MOTOR DA BASE DE DADOS (DB CENTRAL) ---
+        const db = {
+            get: (key) => JSON.parse(localStorage.getItem('griffy_' + key)) || [],
+            set: (key, val) => localStorage.setItem('griffy_' + key, JSON.stringify(val)),
+            bio: {
+                get: () => localStorage.getItem('griffy_bio') || "Bem-vindo ao meu perfil!",
+                set: (val) => localStorage.setItem('griffy_bio', val)
+            }
+        };
+
+        // --- NAVEGAÇÃO ---
+        function showPage(pageId) {
+            document.querySelectorAll('.page-section').forEach(p => p.classList.remove('active-section'));
+            document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('nav-active'));
+            
+            document.getElementById('page-' + pageId).classList.add('active-section');
+            document.getElementById('btn-' + pageId).classList.add('nav-active');
+            
+            renderAll(); // Atualiza os dados sempre que troca de página
+        }
+
+        // --- FUNÇÕES DE PERFIL ---
+        function editBio() {
+            const newBio = prompt("Digite sua nova biografia:", db.bio.get());
+            if (newBio) { db.bio.set(newBio); renderAll(); }
+        }
+
+        // --- FUNÇÕES DE FEED ---
+        function addPost() {
+            const txt = document.getElementById('feed-input').value;
+            if (!txt) return;
+            const posts = db.get('posts');
+            posts.unshift({ id: Date.now(), text: txt, date: new Date().toLocaleDateString() });
+            db.set('posts', posts);
+            document.getElementById('feed-input').value = '';
+            renderAll();
+        }
+
+        // --- FUNÇÕES DE MÚSICA ---
+        function addMusic() {
+            const title = document.getElementById('m-title').value;
+            const artist = document.getElementById('m-artist').value;
+            if (!title) return;
+            const musics = db.get('musics');
+            musics.unshift({ id: Date.now(), title, artist });
+            db.set('musics', musics);
+            renderAll();
+        }
+
+        // --- FUNÇÕES DE MURAL ---
+        function addPhotoPrompt() {
+            const url = prompt("URL da Imagem:");
+            if (url) {
+                const photos = db.get('photos');
+                photos.unshift({ id: Date.now(), url });
+                db.set('photos', photos);
+                renderAll();
+            }
+        }
+
+        function deleteItem(key, id) {
+            if (confirm("Apagar este item da base de dados?")) {
+                const items = db.get(key).filter(i => i.id !== id);
+                db.set(key, items);
+                renderAll();
+            }
+        }
+
+        // --- RENDERIZAÇÃO CENTRAL ---
+        function renderAll() {
+            // Bio
+            document.getElementById('display-bio').textContent = `"${db.bio.get()}"`;
+
+            // Feed
+            document.getElementById('feed-container').innerHTML = db.get('posts').map(p => `
+                <div class="db-card border-l-4 border-purple-500">
+                    <div class="flex justify-between text-xs mb-2 text-gray-500">
+                        <span>Postagem</span>
+                        <button onclick="deleteItem('posts', ${p.id})" class="text-red-900">Remover</button>
+                    </div>
+                    <p class="text-white">${p.text}</p>
+                </div>
+            `).join('');
+
+            // Músicas
+            document.getElementById('music-list').innerHTML = db.get('musics').map(m => `
+                <div class="db-card flex justify-between items-center py-2 px-4">
+                    <div><b class="text-white">${m.title}</b> <br> <span class="text-xs">${m.artist}</span></div>
+                    <button onclick="deleteItem('musics', ${m.id})" class="material-symbols-outlined text-red-500">close</button>
+                </div>
+            `).join('');
+
+            // Mural
+            document.getElementById('mural-container').innerHTML = db.get('photos').map(f => `
+                <div class="relative group rounded-lg overflow-hidden border border-purple-900">
+                    <img src="${f.url}" class="w-full h-32 object-cover">
+                    <button onclick="deleteItem('photos', ${f.id})" class="absolute top-1 right-1 bg-red-600 text-white text-[10px] p-1 rounded opacity-0 group-hover:opacity-100 transition">Excluir</button>
+                </div>
+            `).join('');
+        }
+
+        window.onload = renderAll;
+    </script>
+</body>
+</html>
